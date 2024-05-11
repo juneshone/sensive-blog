@@ -12,7 +12,7 @@ def serialize_post(post):
         'image_url': post.image.url if post.image else None,
         'published_at': post.published_at,
         'slug': post.slug,
-        'tags': [serialize_tag(tag) for tag in post.tags.popular()],
+        'tags': [serialize_tag(tag) for tag in post.tags.all()],
         'first_tag_title': post.tags.all()[0].title,
     }
 
@@ -47,7 +47,9 @@ def index(request):
 
 
 def post_detail(request, slug):
-    post = get_object_or_404(Post.objects.popular().prefetch_related('author'), slug=slug)
+    post = get_object_or_404(
+        Post.objects.popular().prefetch_related('author')\
+        .prefetch_related(Prefetch('tags', queryset=Tag.objects.popular())), slug=slug)
     comments = post.comments.prefetch_related('author')
     serialized_comments = []
     for comment in comments:
@@ -57,7 +59,7 @@ def post_detail(request, slug):
             'author': comment.author.username,
         })
 
-    related_tags = post.tags.popular()
+    related_tags = post.tags.all()
 
     serialized_post = {
         'title': post.title,
@@ -96,7 +98,9 @@ def tag_filter(request, tag_title):
         .prefetch_related(Prefetch('tags', queryset=Tag.objects.popular()))[:5]\
         .fetch_with_comments_count()
 
-    related_posts = tag.posts.popular().prefetch_related('author')[:20].fetch_with_comments_count()
+    related_posts = tag.posts.all().prefetch_related('author')\
+        .prefetch_related(Prefetch('tags', queryset=Tag.objects.popular()))[:20]\
+        .fetch_with_comments_count()
 
     context = {
         'tag': tag.title,
